@@ -11,7 +11,7 @@
 
 //thermistor connected to ground
 //series resistor connected to 3.3V
-#define R0 5000 //thermistor resistance at 25 degrees Celsius
+#define R0 5000 //thermistor resistance at 25 degrees Celsius 15k
 #define th_Coeff 3470 //thermistor coefficient
 #define Rseries 10000 // 10K series resistor
 
@@ -46,10 +46,16 @@ while(1){
 }//tempMeasurement
 
 
-void blink_led (void *pvParameters){
+void controleTemp (void *pvParameters){
     
-    gpio_pad_select_gpio(1); //gpi0 2 led da placa 
+    //setando conf do pino do reler do aquecer  
+    gpio_pad_select_gpio(1); //gpi0 1 led da placa 
     gpio_set_direction (1,GPIO_MODE_OUTPUT);
+    //setando conf do pino do reler da ventuinha
+    //if temp > 27 -> ativa reler aquecedor, desativ aventuinha  
+    // gpio_set_level (pino, valor)
+
+
     while (1) {
         gpio_set_level(1,0);
         vTaskDelay(10000/portTICK_RATE_MS);
@@ -59,7 +65,8 @@ void blink_led (void *pvParameters){
 
 }
 
+
 void app_main() {
 //xTaskCreate(&tempMeasurement, "temperature", 2048, NULL, 2, NULL);
-xTaskCreate(&blink_led,"LED_BLINK",512,NULL,5,NULL);
+xTaskCreate(&controleTemp,"LED_BLINK",512,NULL,5,NULL);
 }
