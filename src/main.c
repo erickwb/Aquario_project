@@ -24,11 +24,11 @@ double cel = 0;
 uint32_t val = 0;
 
 adc1_config_width(ADC_WIDTH_12Bit); // 0 .. 4095
-adc1_config_channel_atten(ADC1_CHANNEL_1,ADC_ATTEN_11db); //ADC1 Ch1 = IO37
+adc1_config_channel_atten(ADC1_CHANNEL_0,ADC_ATTEN_11db); //ADC1 Ch1 = IO37
 
 while(1){
     for(int i = 0; i < 10; i++){
-        val += adc1_get_raw(ADC1_CHANNEL_1);
+        val += adc1_get_raw(ADC1_CHANNEL_0);
         vTaskDelay(2/portTICK_PERIOD_MS);
     }
 
@@ -36,7 +36,11 @@ while(1){
     rez = Rseries/((4095./val) - 1);
     kel = 1./(1./298.15 + 1./th_Coeff * log(rez/R0));
     cel = kel - 273.15;
-    printf("ADC: %d, rez: %f Ohm, %f K, %f C\n", val, rez, kel, cel);           vTaskDelay(1000/portTICK_PERIOD_MS);
+  //  printf("ADC: %d, rez: %f Ohm, %f K, %f C\n", val, rez, kel, cel);    
+   printf("tmp celsius: %f", cel);
+   printf("\n rez: %f", rez);
+      
+    vTaskDelay(1000/portTICK_PERIOD_MS);
     val = 0;
 }//while(1)
 }//tempMeasurement
