@@ -45,6 +45,21 @@ while(1){
 }//while(1)
 }//tempMeasurement
 
+
+void blink_led (void *pvParameters){
+    
+    gpio_pad_select_gpio(1); //gpi0 2 led da placa 
+    gpio_set_direction (1,GPIO_MODE_OUTPUT);
+    while (1) {
+        gpio_set_level(1,0);
+        vTaskDelay(10000/portTICK_RATE_MS);
+        gpio_set_level(1,1);
+        vTaskDelay(10000/portTICK_RATE_MS);
+    }
+
+}
+
 void app_main() {
-xTaskCreate(&tempMeasurement, "temperature", 2048, NULL, 2, NULL);
+//xTaskCreate(&tempMeasurement, "temperature", 2048, NULL, 2, NULL);
+xTaskCreate(&blink_led,"LED_BLINK",512,NULL,5,NULL);
 }
