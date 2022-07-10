@@ -25,9 +25,9 @@
 //define portas
 #define tempSensor 36
 #define releAquecedo 1
-#define releColler 16
-#define releBomba 3
-#define boiaSensor 34
+#define releColler 15
+#define releBomba 16
+#define boiaSensor 17
 
 void vGpioConf();
 
@@ -189,8 +189,7 @@ void vGpioConf(){
     GPIOconfig.intr_type = GPIO_INTR_POSEDGE;
     GPIOconfig.pull_down_en = 0;
     GPIOconfig.pull_up_en = 0;
-    GPIOconfig.pin_bit_mask = (1 << boiaSensor);
-
+    GPIOconfig.pin_bit_mask = (15 << boiaSensor);
     gpio_config(&GPIOconfig);
 
 
