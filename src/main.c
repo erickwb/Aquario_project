@@ -22,23 +22,21 @@
 #define BUF_SIZE (1024)
 #define OFF 0
 #define ON 1
+//define portas
+#define tempSensor 36
+#define releAquecedo 1
+#define releColler 16
+#define releBomba 3
+#define boiaSensor 34
 
 void vGpioConf();
-
-//typedef struct {
- //valuer temp
-
-//}tempInfo ;
 
 xQueueHandle tempQueue;
 xTaskHandle TaskHandle = NULL;
 xTaskHandle TaskHandle2 = NULL;
 
-
-
-
-
 void vUart_use(float data, int type);
+void uart_printf(char *string, void *pvParamemeter);
 
 const uart_port_t uart_num = UART_NUM_0;
 uart_config_t uart_config = {
@@ -63,32 +61,29 @@ void tempMeasurement(void *pvParameters){
     uint32_t val = 0;
     
     adc1_config_width(ADC_WIDTH_12Bit); // 0 .. 4095
-    adc1_config_channel_atten(ADC1_CHANNEL_0,ADC_ATTEN_11db); //ADC1 Ch1 = IO37
+    adc1_config_channel_atten(ADC1_CHANNEL_0,ADC_ATTEN_11db); //ADC1 Ch1 = IO36
     
     while(1){
-        // for(int i = 0; i < 10; i++){
-        //     val += adc1_get_raw(ADC1_CHANNEL_0);
-        //     vTaskDelay(2/portTICK_PERIOD_MS);
-        // }
+        for(int i = 0; i < 10; i++){
+          val += adc1_get_raw(ADC1_CHANNEL_0);
+          vTaskDelay(2/portTICK_PERIOD_MS);
+        }
 
-        // val = val/10;
-        // rez = Rseries/((4095./val) - 1);
-        // kel = 1./(1./298.15 + 1./th_Coeff * log(rez/R0));
-        // cel = kel - 273.15;
+        val = val/10;
+        rez = Rseries/((4095./val) - 1);
+        kel = 1./(1./298.15 + 1./th_Coeff * log(rez/R0));
+        cel = kel - 273.15;
         // printf("ADC: %d, rez: %f Ohm, %f K, %f C\n", val, rez, kel, cel);    
-        // printf("tmp celsius: %f", cel);
-        // printf("\n rez: %f", rez);
+        //printf("tmp celsius: %f", cel);
+       // printf("\n rez: %f", rez);
         
-        //measuere = cel;
-        measuere++;           
+        measuere = cel;
+      //  measuere++;           
         xQueueSend(tempQueue, &measuere, portMAX_DELAY); 
-        
+
         vTaskDelay(pdMS_TO_TICKS(500));
 
-       
-        
-
-       // val = 0;
+        val = 0;
 }//while(1)
 }//tempMeasurement
 
@@ -100,15 +95,18 @@ void controlAtuadores (void *pvParameters){
     while (1) {
         xQueueReceive(tempQueue, &measuere, portMAX_DELAY);
         if(measuere > 25.00){
-            gpio_set_level(1,1);
-            gpio_set_level(16,0);
+            //temp acima de 25 
+            gpio_set_level(releAquecedo,1); //aquecedor ON
+            gpio_set_level(releColler,0); // coller OFF
         }else if (measuere < 23 ){
-            gpio_set_level(1,0);
-            gpio_set_level(16,1);
+            //temp abaixo de 23 
+            gpio_set_level(releAquecedo,0);//aquecedor OFF
+            gpio_set_level(releColler,1); // coller ON
         }
         else{
-            gpio_set_level(1,0);
-            gpio_set_level(16,0);
+            //temp ideal 
+            gpio_set_level(releAquecedo,0);//aquecedor OFF
+            gpio_set_level(releColler,0);// coller OFF
 
         }
         vTaskDelay(pdMS_TO_TICKS(500));
@@ -116,8 +114,8 @@ void controlAtuadores (void *pvParameters){
 }
 
 void controlAtuadore2(void *pvParameters){
-    float measuere;
-
+  //  float measuere;
+ /*
     while (1) {
         xQueueReceive(tempQueue, &measuere, portMAX_DELAY);
         if(measuere > 10.00){
@@ -129,6 +127,7 @@ void controlAtuadore2(void *pvParameters){
         }
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
+    */
 }
 
 
@@ -138,40 +137,63 @@ void app_main() {
     xTaskCreate(&tempMeasurement, "temperature", configMINIMAL_STACK_SIZE+1024, NULL, 1, &TaskHandle);
     xTaskCreate(&controlAtuadores,"Atuadores",configMINIMAL_STACK_SIZE+1024,NULL,1,&TaskHandle2);
     tempQueue = xQueueCreate(1,sizeof(float *)); 
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(boiaSensor,InterruptFunction,(void*) boiaSensor);
 
 
-    
 
+}
 
-    
+static void IRAM_ATTR InterruptFunction(void* args){
+    gpio_set_level(releBomba,0);
 }
 
 
 void vGpioConf(){
-    //led
+    //rele1 aquecedor
     gpio_config_t GPIOconfig;
     GPIOconfig.mode = GPIO_MODE_OUTPUT;
     GPIOconfig.intr_type = 0;
     GPIOconfig.pull_down_en = 0;
     GPIOconfig.pull_up_en = 0;
-    GPIOconfig.pin_bit_mask = (1 << 1);
+    GPIOconfig.pin_bit_mask = (1 << releAquecedo);
     gpio_config(&GPIOconfig);
 
-    //rele
+    //rele2 coller 
     GPIOconfig.mode = GPIO_MODE_OUTPUT;
     GPIOconfig.intr_type = 0;
     GPIOconfig.pull_down_en = 0;
     GPIOconfig.pull_up_en = 0;
-    GPIOconfig.pin_bit_mask = (1 << 16);
+    GPIOconfig.pin_bit_mask = (1 << releColler);
     gpio_config(&GPIOconfig);
 
-    //rele2
+    //rele3 LED
     GPIOconfig.mode = GPIO_MODE_OUTPUT;
     GPIOconfig.intr_type = 0;
     GPIOconfig.pull_down_en = 0;
     GPIOconfig.pull_up_en = 0;
-    GPIOconfig.pin_bit_mask = (1 << 17);
+    GPIOconfig.pin_bit_mask = (1 << releBomba);
+    gpio_set_level(releBomba,1);
     gpio_config(&GPIOconfig);
+
+    //sensor temp
+    GPIOconfig.mode = GPIO_MODE_INPUT;
+    GPIOconfig.intr_type = 0;
+    GPIOconfig.pull_down_en = 0;
+    GPIOconfig.pull_up_en = 0;
+    GPIOconfig.pin_bit_mask = (1 << tempSensor);
+    gpio_config(&GPIOconfig);
+
+    //sensor boia
+    GPIOconfig.mode = GPIO_MODE_INPUT;
+    GPIOconfig.intr_type = GPIO_INTR_POSEDGE;
+    GPIOconfig.pull_down_en = 0;
+    GPIOconfig.pull_up_en = 0;
+    GPIOconfig.pin_bit_mask = (1 << boiaSensor);
+
+    gpio_config(&GPIOconfig);
+
+
 
 
 }
@@ -207,5 +229,13 @@ void vUart_use(float data, int type){
 
     uart_flush(uart_num);
     uart_flush_input(uart_num);
+
+}
+
+void uart_printf(char *string, void *pvParamemeter){
+   sprintf(string,"%f\n\r",pvParamemeter);
+   uart_write_bytes(uart_num,string,strlen(string));
+   uart_flush(uart_num);
+   uart_flush_input(uart_num);
 
 }
