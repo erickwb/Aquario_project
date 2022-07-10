@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "esp_system.h": "c",
-        "gpio.h": "c"
+        "gpio.h": "c",
+        "adc.h": "c",
+        "math.h": "c"
     }
 }
