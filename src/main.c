@@ -35,6 +35,10 @@ xQueueHandle tempQueue;
 xTaskHandle TaskHandle = NULL;
 xTaskHandle TaskHandle2 = NULL;
 
+
+char flag_boia;
+
+
 void vUart_use(float data, int type);
 void uart_printf(char *string, void *pvParamemeter);
 
@@ -48,6 +52,16 @@ uart_config_t uart_config = {
 };
 
 
+static void IRAM_ATTR InterruptFunction(void* args){
+    if(flag_boia == 'f'){
+        gpio_set_level(releBomba,1);
+        flag_boia = 'a';
+    }else if(flag_boia == 'a'){
+       gpio_set_level(releBomba,0);
+       flag_boia = 'f';
+    }
+        
+}
 
 
 void tempMeasurement(void *pvParameters){
@@ -137,15 +151,12 @@ void app_main() {
     xTaskCreate(&tempMeasurement, "temperature", configMINIMAL_STACK_SIZE+1024, NULL, 1, &TaskHandle);
     xTaskCreate(&controlAtuadores,"Atuadores",configMINIMAL_STACK_SIZE+1024,NULL,1,&TaskHandle2);
     tempQueue = xQueueCreate(1,sizeof(float *)); 
+    flag_boia = 'f';
     gpio_install_isr_service(0);
     gpio_isr_handler_add(boiaSensor,InterruptFunction,(void*) boiaSensor);
 
 
 
-}
-
-static void IRAM_ATTR InterruptFunction(void* args){
-    gpio_set_level(releBomba,0);
 }
 
 
@@ -186,7 +197,7 @@ void vGpioConf(){
 
     //sensor boia
     GPIOconfig.mode = GPIO_MODE_INPUT;
-    GPIOconfig.intr_type = GPIO_INTR_POSEDGE;
+    GPIOconfig.intr_type = GPIO_INTR_ANYEDGE;
     GPIOconfig.pull_down_en = 0;
     GPIOconfig.pull_up_en = 0;
     GPIOconfig.pin_bit_mask = (15 << boiaSensor);
@@ -207,7 +218,7 @@ void vGpioConf(){
 
 /**************** Uart usage **************** */
 
-
+/*
 void vUart_use(float data, int type){
    char*  string_sensor1 = malloc(sizeof(char) * BUF_SIZE);
    char*  string_sensor2 = malloc(sizeof(char) * BUF_SIZE);
@@ -238,3 +249,5 @@ void uart_printf(char *string, void *pvParamemeter){
    uart_flush_input(uart_num);
 
 }
+
+*/
