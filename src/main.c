@@ -29,6 +29,8 @@
 #define releBomba 16
 #define boiaSensor 17
 
+#define buton 18
+
 void vGpioConf();
 
 xQueueHandle tempQueue;
@@ -62,6 +64,7 @@ static void IRAM_ATTR InterruptFunction(void* args){
     }
         
 }
+
 
 
 void tempMeasurement(void *pvParameters){
@@ -127,22 +130,6 @@ void controlAtuadores (void *pvParameters){
     }
 }
 
-void controlAtuadore2(void *pvParameters){
-  //  float measuere;
- /*
-    while (1) {
-        xQueueReceive(tempQueue, &measuere, portMAX_DELAY);
-        if(measuere > 10.00){
-            gpio_set_level(1,1);
-            gpio_set_level(16,1);
-        }else if (measuere < 10.00){
-            gpio_set_level(1,0);
-            gpio_set_level(16,0);
-        }
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-    */
-}
 
 
 void app_main() {
@@ -153,8 +140,10 @@ void app_main() {
     tempQueue = xQueueCreate(1,sizeof(float *)); 
     flag_boia = 'f';
     gpio_install_isr_service(0);
+    gpio_isr_handler_add(buton,InterruptFunction,(void*) buton);
     gpio_isr_handler_add(boiaSensor,InterruptFunction,(void*) boiaSensor);
-
+    
+    
 
 
 }
@@ -202,6 +191,16 @@ void vGpioConf(){
     GPIOconfig.pull_up_en = 0;
     GPIOconfig.pin_bit_mask = (15 << boiaSensor);
     gpio_config(&GPIOconfig);
+
+    //botaão
+    GPIOconfig.mode = GPIO_MODE_INPUT;
+    GPIOconfig.intr_type = GPIO_INTR_HIGH_LEVEL;
+    GPIOconfig.pull_down_en = 0;
+    GPIOconfig.pull_up_en = 0;
+    GPIOconfig.pin_bit_mask = (15 << buton);
+    gpio_set_level(releBomba,1);
+    gpio_config(&GPIOconfig);
+
 
 
 
