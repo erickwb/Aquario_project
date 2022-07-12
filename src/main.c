@@ -12,58 +12,52 @@
 #include "driver/uart.h"
 #include "string.h"
 
+//ideias
+//semaforo do print da temperatura e do nivel da boia
+//
 
-
-//thermistor connected to ground
-//series resistor connected to 3.3V
+//defines parametros sensor de temperatura
 #define R0 10000 //thermistor resistance at 25 degrees Celsius 10k
 #define th_Coeff 3470 //thermistor coefficient
 #define Rseries 10000 // 10K series resistor
-#define BUF_SIZE (1024)
+#define BUF_SIZE (1024)//thermistor connected to ground
 #define OFF 0
 #define ON 1
 //define portas
-#define tempSensor 36
 #define releAquecedo 1
 #define releColler 15
 #define releBomba 16
 #define boiaSensor 17
-
 #define buton 18
+#define tempSensor 36
 
 void vGpioConf();
 
+//handles
 xQueueHandle tempQueue;
+xQueueHandle printQueue;
 xTaskHandle TaskHandle = NULL;
 xTaskHandle TaskHandle2 = NULL;
+SemaphoreHandle_t xSemaphore_Serial = NULL; //semaphore da boia
+SemaphoreHandle_t xSemaphore_ExpIO = NULL;
 
-
+//boia
 char flag_boia;
-
-
-void vUart_use(float data, int type);
-void uart_printf(char *string, void *pvParamemeter);
-
-const uart_port_t uart_num = UART_NUM_0;
-uart_config_t uart_config = {
-    .baud_rate = 115200,
-    .data_bits = UART_DATA_8_BITS,
-    .parity = UART_PARITY_DISABLE,
-    .stop_bits = UART_STOP_BITS_1,
-    .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-};
 
 
 static void IRAM_ATTR InterruptFunction(void* args){
     if(flag_boia == 'f'){
         gpio_set_level(releBomba,1);
+        printf("Rele On");
         flag_boia = 'a';
     }else if(flag_boia == 'a'){
        gpio_set_level(releBomba,0);
+       printf("Rele Off");
        flag_boia = 'f';
     }
         
 }
+
 
 
 
@@ -90,20 +84,28 @@ void tempMeasurement(void *pvParameters){
         rez = Rseries/((4095./val) - 1);
         kel = 1./(1./298.15 + 1./th_Coeff * log(rez/R0));
         cel = kel - 273.15;
-        // printf("ADC: %d, rez: %f Ohm, %f K, %f C\n", val, rez, kel, cel);    
-        //printf("tmp celsius: %f", cel);
-       // printf("\n rez: %f", rez);
         
         measuere = cel;
-      //  measuere++;           
+         
         xQueueSend(tempQueue, &measuere, portMAX_DELAY); 
+        xQueueSend(printQueue,&measuere,portMAX_DELAY);
 
         vTaskDelay(pdMS_TO_TICKS(500));
 
         val = 0;
-}//while(1)
-}//tempMeasurement
+    }
+}
 
+void print(){
+    float measuere;
+    while(1){
+       // xQueueReceive(printQueue, &measuere, portMAX_DELAY);
+        xSemaphoreTake(xSemaphore_Serial,portMAX_DELAY);
+        print("temperatura atual em C: %f", measuere);
+        vTaskDelay(pdMS_TO_TICKS(20000));
+        xSemaphoreGive( xSemaphore_Serial );
+    }
+}
 
 void controlAtuadores (void *pvParameters){
     //aquecedor cooler 
@@ -113,24 +115,27 @@ void controlAtuadores (void *pvParameters){
         xQueueReceive(tempQueue, &measuere, portMAX_DELAY);
         if(measuere > 25.00){
             //temp acima de 25 
-            gpio_set_level(releAquecedo,1); //aquecedor ON
-            gpio_set_level(releColler,0); // coller OFF
+            gpio_set_level(releAquecedo,ON); //aquecedor ON
+            gpio_set_level(releColler,OFF); // coller OFF
         }else if (measuere < 23 ){
             //temp abaixo de 23 
-            gpio_set_level(releAquecedo,0);//aquecedor OFF
-            gpio_set_level(releColler,1); // coller ON
+            gpio_set_level(releAquecedo,OFF);//aquecedor OFF
+            gpio_set_level(releColler,ON); // coller ON
         }
         else{
             //temp ideal 
-            gpio_set_level(releAquecedo,0);//aquecedor OFF
-            gpio_set_level(releColler,0);// coller OFF
+            gpio_set_level(releAquecedo,OFF);//aquecedor OFF
+            gpio_set_level(releColler,OFF);// coller OFF
 
         }
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 
+void controlaBomba(void *pvParameters){
+    
 
+}
 
 void app_main() {
     
@@ -138,10 +143,22 @@ void app_main() {
     xTaskCreate(&tempMeasurement, "temperature", configMINIMAL_STACK_SIZE+1024, NULL, 1, &TaskHandle);
     xTaskCreate(&controlAtuadores,"Atuadores",configMINIMAL_STACK_SIZE+1024,NULL,1,&TaskHandle2);
     tempQueue = xQueueCreate(1,sizeof(float *)); 
+    printQueue = xQueueCreate(1,sizeof(float *));
     flag_boia = 'f';
     gpio_install_isr_service(0);
     gpio_isr_handler_add(buton,InterruptFunction,(void*) buton);
-    gpio_isr_handler_add(boiaSensor,InterruptFunction,(void*) boiaSensor);
+   // gpio_isr_handler_add(boiaSensor,InterruptFunction1,(void*) boiaSensor);
+
+/*
+    vSemaphoreCreateBinary( xSemaphore_Serial );
+        if(xSemaphore_Serial == NULL)
+        {
+           printf("deu bucho");
+        }
+
+*/
+        //#endif /* ENABLE_SEMAPHORE_SERIAL  */
+  // Cria semafaro binario xSemaphore_ExpIO
     
     
 
@@ -201,52 +218,4 @@ void vGpioConf(){
     gpio_set_level(releBomba,1);
     gpio_config(&GPIOconfig);
 
-
-
-
-
 }
-
-/**************** Uart usage **************** */
-
-// float data: O valor a ser exibido.        //
-
-// int type: Seleciona a string padrão onde: //
-//                  0 = String de Temperatura.
-//                  1 = String de Nível
-
-/**************** Uart usage **************** */
-
-/*
-void vUart_use(float data, int type){
-   char*  string_sensor1 = malloc(sizeof(char) * BUF_SIZE);
-   char*  string_sensor2 = malloc(sizeof(char) * BUF_SIZE);
-
-
-    switch (type){
-    case 0:
-        sprintf(string_sensor1," - [Sensor Temperatura: ] %f\n\r",data);
-        uart_write_bytes(uart_num,string_sensor1,strlen(string_sensor1));
-        break;
-    case 1:
-        sprintf(string_sensor2," - [Sensor Nivel: ] %f\n\r",data);
-        uart_write_bytes(uart_num,string_sensor2,strlen(string_sensor2));
-        break;
-    default:
-        break;
-    }
-
-    uart_flush(uart_num);
-    uart_flush_input(uart_num);
-
-}
-
-void uart_printf(char *string, void *pvParamemeter){
-   sprintf(string,"%f\n\r",pvParamemeter);
-   uart_write_bytes(uart_num,string,strlen(string));
-   uart_flush(uart_num);
-   uart_flush_input(uart_num);
-
-}
-
-*/
