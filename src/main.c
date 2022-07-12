@@ -1,39 +1,48 @@
 #include <stdio.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
+#include "string.h"
+
 #include "esp_system.h"
 #include "esp_spi_flash.h"
 #include "driver/gpio.h"
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
+#include "driver/uart.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+
 #include <math.h>
 #include <machine/ieeefp.h>
-#include "driver/uart.h"
-#include "string.h"
+
+
+
 
 //ideias
 //semaforo do print da temperatura e do nivel da boia
 //
 
-//defines parametros sensor de temperatura
+
+
+/* DEFINES (parâmetros) do Sensor de Temperatura */
 #define R0 10000 //thermistor resistance at 25 degrees Celsius 10k
 #define th_Coeff 3470 //thermistor coefficient
 #define Rseries 10000 // 10K series resistor
 #define BUF_SIZE (1024)//thermistor connected to ground
 #define OFF 0
 #define ON 1
-//define portas
-#define releAquecedo 1
+
+/* DEFINES das PORTAS GPIO ESP32 */
+#define releAquecedor 1
 #define releColler 15
 #define releBomba 16
 #define boiaSensor 17
-#define buton 18
+#define button 18
 #define tempSensor 36
 
 void vGpioConf();
 
-//handles
+/* Handles do FreeRTOS */
 xQueueHandle tempQueue;
 xQueueHandle printQueue;
 xTaskHandle TaskHandle = NULL;
@@ -41,7 +50,7 @@ xTaskHandle TaskHandle2 = NULL;
 SemaphoreHandle_t xSemaphore_Serial = NULL; //semaphore da boia
 SemaphoreHandle_t xSemaphore_ExpIO = NULL;
 
-//boia
+/* Variável global de interrupção */
 char flag_boia;
 
 
@@ -57,9 +66,6 @@ static void IRAM_ATTR InterruptFunction(void* args){
     }
         
 }
-
-
-
 
 void tempMeasurement(void *pvParameters){
     
@@ -115,16 +121,16 @@ void controlAtuadores (void *pvParameters){
         xQueueReceive(tempQueue, &measuere, portMAX_DELAY);
         if(measuere > 25.00){
             //temp acima de 25 
-            gpio_set_level(releAquecedo,ON); //aquecedor ON
+            gpio_set_level(releAquecedor,ON); //aquecedor ON
             gpio_set_level(releColler,OFF); // coller OFF
         }else if (measuere < 23 ){
             //temp abaixo de 23 
-            gpio_set_level(releAquecedo,OFF);//aquecedor OFF
+            gpio_set_level(releAquecedor,OFF);//aquecedor OFF
             gpio_set_level(releColler,ON); // coller ON
         }
         else{
             //temp ideal 
-            gpio_set_level(releAquecedo,OFF);//aquecedor OFF
+            gpio_set_level(releAquecedor,OFF);//aquecedor OFF
             gpio_set_level(releColler,OFF);// coller OFF
 
         }
@@ -146,7 +152,7 @@ void app_main() {
     printQueue = xQueueCreate(1,sizeof(float *));
     flag_boia = 'f';
     gpio_install_isr_service(0);
-    gpio_isr_handler_add(buton,InterruptFunction,(void*) buton);
+    gpio_isr_handler_add(button,InterruptFunction,(void*) button);
    // gpio_isr_handler_add(boiaSensor,InterruptFunction1,(void*) boiaSensor);
 
 /*
@@ -165,7 +171,7 @@ void app_main() {
 
 }
 
-
+/* Configurações de GPIO ESP32 */
 void vGpioConf(){
     //rele1 aquecedor
     gpio_config_t GPIOconfig;
@@ -173,7 +179,7 @@ void vGpioConf(){
     GPIOconfig.intr_type = 0;
     GPIOconfig.pull_down_en = 0;
     GPIOconfig.pull_up_en = 0;
-    GPIOconfig.pin_bit_mask = (1 << releAquecedo);
+    GPIOconfig.pin_bit_mask = (1 << releAquecedor);
     gpio_config(&GPIOconfig);
 
     //rele2 coller 
@@ -193,7 +199,7 @@ void vGpioConf(){
     gpio_set_level(releBomba,1);
     gpio_config(&GPIOconfig);
 
-    //sensor temp
+    //Sensor temperatura
     GPIOconfig.mode = GPIO_MODE_INPUT;
     GPIOconfig.intr_type = 0;
     GPIOconfig.pull_down_en = 0;
@@ -201,7 +207,7 @@ void vGpioConf(){
     GPIOconfig.pin_bit_mask = (1 << tempSensor);
     gpio_config(&GPIOconfig);
 
-    //sensor boia
+    //Sensor Boia
     GPIOconfig.mode = GPIO_MODE_INPUT;
     GPIOconfig.intr_type = GPIO_INTR_ANYEDGE;
     GPIOconfig.pull_down_en = 0;
@@ -209,12 +215,12 @@ void vGpioConf(){
     GPIOconfig.pin_bit_mask = (15 << boiaSensor);
     gpio_config(&GPIOconfig);
 
-    //botaão
+    //Botão
     GPIOconfig.mode = GPIO_MODE_INPUT;
     GPIOconfig.intr_type = GPIO_INTR_HIGH_LEVEL;
     GPIOconfig.pull_down_en = 0;
     GPIOconfig.pull_up_en = 0;
-    GPIOconfig.pin_bit_mask = (15 << buton);
+    GPIOconfig.pin_bit_mask = (15 << button);
     gpio_set_level(releBomba,1);
     gpio_config(&GPIOconfig);
 
