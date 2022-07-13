@@ -32,9 +32,13 @@
 void vGpioConf();
 //handles
 xQueueHandle tempQueue;
+xQueueHandle printTempQueue;
 xTaskHandle TaskHandle = NULL;
 xTaskHandle TaskHandle2 = NULL;
+xTaskHandle TaskHandle3 = NULL; //taskA
+xTaskHandle TaskHandle4 = NULL; //taskB
 
+xSemaphoreHandle semaphore;
 
 char flag_boia;
 
@@ -74,12 +78,10 @@ void tempMeasurement(void *pvParameters){
         rez = Rseries/((4095./val) - 1);
         kel = 1./(1./298.15 + 1./th_Coeff * log(rez/R0));
         cel = kel - 273.15;
-        printf("ADC: %d, rez: %f Ohm, %f K, %f C\n", val, rez, kel, cel);    
-        //printf("tmp celsius: %f", cel);
-       // printf("\n rez: %f", rez);
         
         measuere = cel;          
         xQueueSend(tempQueue, &measuere, portMAX_DELAY); 
+        xQueueSend(printTempQueue, &measuere, portMAX_DELAY);
 
         vTaskDelay(pdMS_TO_TICKS(500));
 
@@ -113,35 +115,52 @@ void controlAtuadores (void *pvParameters){
     }
 }
 
-void controlAtuadore2(void *pvParameters){
-  //  float measuere;
- /*
-    while (1) {
-        xQueueReceive(tempQueue, &measuere, portMAX_DELAY);
-        if(measuere > 10.00){
-            gpio_set_level(1,1);
-            gpio_set_level(16,1);
-        }else if (measuere < 10.00){
-            gpio_set_level(1,0);
-            gpio_set_level(16,0);
+void printTaskA(void *pvParameters){
+    float measuere; 
+
+    while (1)
+    {
+        if(xSemaphoreTake(semaphore,pdMS_TO_TICKS(200)==true)){
+            xQueueReceive(printTempQueue, &measuere, portMAX_DELAY);
+            printf("tmp celsius: %f \n", measuere);
+            vTaskDelay(pdMS_TO_TICKS(500));
+        }else{
+            printf("boia\n");
+            
+            xSemaphoreGive( semaphore );
         }
-        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        
     }
-    */
+    
+ 
 }
+
+void floaterMeasurement(void *pvParameters){
+    
+    while (1)
+    {
+        gpio_install_isr_service(0);
+        gpio_isr_handler_add(boiaSensor,InterruptFunction,(void*) boiaSensor);  
+    }
+    
+}
+
 
 
 void app_main() {
     
     vGpioConf();
+    flag_boia = 'f';
     xTaskCreate(&tempMeasurement, "temperature", configMINIMAL_STACK_SIZE+1024, NULL, 1, &TaskHandle);
     xTaskCreate(&controlAtuadores,"Atuadores",configMINIMAL_STACK_SIZE+1024,NULL,1,&TaskHandle2);
-    tempQueue = xQueueCreate(1,sizeof(float *)); 
-    flag_boia = 'f';
+    xTaskCreate(&printTaskA,"pintTemp", configMINIMAL_STACK_SIZE+1024,NULL,1,&TaskHandle3);
+   // xTaskCreate(&floaterMeasurement,"pinttest", configMINIMAL_STACK_SIZE+1024,NULL,1,&TaskHandle4);
     gpio_install_isr_service(0);
-    gpio_isr_handler_add(boiaSensor,InterruptFunction,(void*) boiaSensor);
-
-
+    gpio_isr_handler_add(boiaSensor,InterruptFunction,(void*) boiaSensor);  
+    tempQueue = xQueueCreate(1,sizeof(float *)); 
+    printTempQueue = xQueueCreate(1,sizeof(float *));
+    semaphore = xSemaphoreCreateBinary();
 
 }
 
@@ -188,8 +207,6 @@ void vGpioConf(){
     GPIOconfig.pull_up_en = 0;
     GPIOconfig.pin_bit_mask = (15 << boiaSensor);
     gpio_config(&GPIOconfig);
-
-
 
 
 }
