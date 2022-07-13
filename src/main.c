@@ -16,9 +16,9 @@
 #include "driver/uart.h"
 #include "string.h"
 
-#define R0 10000 //thermistor resistance at 25 degrees Celsius 10k
-#define th_Coeff 3470 //thermistor coefficient
-#define Rseries 10000 // 10K series resistor
+#define R0 10000 //thermistor valor maximo
+#define th_Coeff 3470 //thermistor coeficiente
+#define Rseries 10000 // 10K resisitoe serie
 #define BUF_SIZE (1024)
 #define OFF 0
 #define ON 1
@@ -126,7 +126,7 @@ void printTaskA(void *pvParameters){
             vTaskDelay(pdMS_TO_TICKS(500));
             xSemaphoreGive( semaphore );
         }else{
-            printf("boia\n");
+            printf("semaforo open\n");
             
             xSemaphoreGive( semaphore );
         }
