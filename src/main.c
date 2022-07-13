@@ -120,10 +120,11 @@ void printTaskA(void *pvParameters){
 
     while (1)
     {
-        if(xSemaphoreTake(semaphore,pdMS_TO_TICKS(200)==true)){
+        if(xSemaphoreTake(semaphore,pdMS_TO_TICKS(500)==true)){
             xQueueReceive(printTempQueue, &measuere, portMAX_DELAY);
             printf("tmp celsius: %f \n", measuere);
             vTaskDelay(pdMS_TO_TICKS(500));
+            xSemaphoreGive( semaphore );
         }else{
             printf("boia\n");
             
@@ -155,9 +156,7 @@ void app_main() {
     xTaskCreate(&tempMeasurement, "temperature", configMINIMAL_STACK_SIZE+1024, NULL, 1, &TaskHandle);
     xTaskCreate(&controlAtuadores,"Atuadores",configMINIMAL_STACK_SIZE+1024,NULL,1,&TaskHandle2);
     xTaskCreate(&printTaskA,"pintTemp", configMINIMAL_STACK_SIZE+1024,NULL,1,&TaskHandle3);
-   // xTaskCreate(&floaterMeasurement,"pinttest", configMINIMAL_STACK_SIZE+1024,NULL,1,&TaskHandle4);
-    gpio_install_isr_service(0);
-    gpio_isr_handler_add(boiaSensor,InterruptFunction,(void*) boiaSensor);  
+ 
     tempQueue = xQueueCreate(1,sizeof(float *)); 
     printTempQueue = xQueueCreate(1,sizeof(float *));
     semaphore = xSemaphoreCreateBinary();
