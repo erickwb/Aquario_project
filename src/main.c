@@ -115,7 +115,7 @@ void controlAtuadores (void *pvParameters){
     }
 }
 
-void printTaskA(void *pvParameters){
+void printTemp(void *pvParameters){
     float measuere; 
 
     while (1)
@@ -137,17 +137,6 @@ void printTaskA(void *pvParameters){
  
 }
 
-void floaterMeasurement(void *pvParameters){
-    
-    while (1)
-    {
-        gpio_install_isr_service(0);
-        gpio_isr_handler_add(boiaSensor,InterruptFunction,(void*) boiaSensor);  
-    }
-    
-}
-
-
 
 void app_main() {
     
@@ -155,8 +144,12 @@ void app_main() {
     flag_boia = 'f';
     xTaskCreate(&tempMeasurement, "temperature", configMINIMAL_STACK_SIZE+1024, NULL, 1, &TaskHandle);
     xTaskCreate(&controlAtuadores,"Atuadores",configMINIMAL_STACK_SIZE+1024,NULL,1,&TaskHandle2);
-    xTaskCreate(&printTaskA,"pintTemp", configMINIMAL_STACK_SIZE+1024,NULL,1,&TaskHandle3);
- 
+    xTaskCreate(&printTemp,"pintTemp", configMINIMAL_STACK_SIZE+1024,NULL,1,&TaskHandle3);
+
+
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(boiaSensor,InterruptFunction,(void*) boiaSensor);  
+
     tempQueue = xQueueCreate(1,sizeof(float *)); 
     printTempQueue = xQueueCreate(1,sizeof(float *));
     semaphore = xSemaphoreCreateBinary();
