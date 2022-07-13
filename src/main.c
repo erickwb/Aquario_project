@@ -1,3 +1,7 @@
+/*
+
+*/
+
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -12,10 +16,6 @@
 #include "driver/uart.h"
 #include "string.h"
 
-
-
-//thermistor connected to ground
-//series resistor connected to 3.3V
 #define R0 10000 //thermistor resistance at 25 degrees Celsius 10k
 #define th_Coeff 3470 //thermistor coefficient
 #define Rseries 10000 // 10K series resistor
@@ -24,32 +24,19 @@
 #define ON 1
 //define portas
 #define tempSensor 36
-#define releAquecedo 1
+#define releAquecedo 25
 #define releColler 15
 #define releBomba 16
 #define boiaSensor 17
 
 void vGpioConf();
-
+//handles
 xQueueHandle tempQueue;
 xTaskHandle TaskHandle = NULL;
 xTaskHandle TaskHandle2 = NULL;
 
 
 char flag_boia;
-
-
-void vUart_use(float data, int type);
-void uart_printf(char *string, void *pvParamemeter);
-
-const uart_port_t uart_num = UART_NUM_0;
-uart_config_t uart_config = {
-    .baud_rate = 115200,
-    .data_bits = UART_DATA_8_BITS,
-    .parity = UART_PARITY_DISABLE,
-    .stop_bits = UART_STOP_BITS_1,
-    .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-};
 
 
 static void IRAM_ATTR InterruptFunction(void* args){
@@ -87,19 +74,18 @@ void tempMeasurement(void *pvParameters){
         rez = Rseries/((4095./val) - 1);
         kel = 1./(1./298.15 + 1./th_Coeff * log(rez/R0));
         cel = kel - 273.15;
-        // printf("ADC: %d, rez: %f Ohm, %f K, %f C\n", val, rez, kel, cel);    
+        printf("ADC: %d, rez: %f Ohm, %f K, %f C\n", val, rez, kel, cel);    
         //printf("tmp celsius: %f", cel);
        // printf("\n rez: %f", rez);
         
-        measuere = cel;
-      //  measuere++;           
+        measuere = cel;          
         xQueueSend(tempQueue, &measuere, portMAX_DELAY); 
 
         vTaskDelay(pdMS_TO_TICKS(500));
 
         val = 0;
-}//while(1)
-}//tempMeasurement
+    }
+}
 
 
 void controlAtuadores (void *pvParameters){
@@ -108,19 +94,19 @@ void controlAtuadores (void *pvParameters){
 
     while (1) {
         xQueueReceive(tempQueue, &measuere, portMAX_DELAY);
-        if(measuere > 25.00){
-            //temp acima de 25 
-            gpio_set_level(releAquecedo,1); //aquecedor ON
-            gpio_set_level(releColler,0); // coller OFF
+        if(measuere > 28.00){
+            //temp acima de 28 
+            gpio_set_level(releAquecedo,0); //aquecedor ON
+            gpio_set_level(releColler,1); // coller OFF
         }else if (measuere < 23 ){
             //temp abaixo de 23 
-            gpio_set_level(releAquecedo,0);//aquecedor OFF
-            gpio_set_level(releColler,1); // coller ON
+            gpio_set_level(releAquecedo,1);//aquecedor OFF
+            gpio_set_level(releColler,0); // coller ON
         }
         else{
             //temp ideal 
-            gpio_set_level(releAquecedo,0);//aquecedor OFF
-            gpio_set_level(releColler,0);// coller OFF
+            gpio_set_level(releAquecedo,1);//aquecedor OFF
+            gpio_set_level(releColler,1);// coller OFF
 
         }
         vTaskDelay(pdMS_TO_TICKS(500));
@@ -207,47 +193,3 @@ void vGpioConf(){
 
 
 }
-
-/**************** Uart usage **************** */
-
-// float data: O valor a ser exibido.        //
-
-// int type: Seleciona a string padrão onde: //
-//                  0 = String de Temperatura.
-//                  1 = String de Nível
-
-/**************** Uart usage **************** */
-
-/*
-void vUart_use(float data, int type){
-   char*  string_sensor1 = malloc(sizeof(char) * BUF_SIZE);
-   char*  string_sensor2 = malloc(sizeof(char) * BUF_SIZE);
-
-
-    switch (type){
-    case 0:
-        sprintf(string_sensor1," - [Sensor Temperatura: ] %f\n\r",data);
-        uart_write_bytes(uart_num,string_sensor1,strlen(string_sensor1));
-        break;
-    case 1:
-        sprintf(string_sensor2," - [Sensor Nivel: ] %f\n\r",data);
-        uart_write_bytes(uart_num,string_sensor2,strlen(string_sensor2));
-        break;
-    default:
-        break;
-    }
-
-    uart_flush(uart_num);
-    uart_flush_input(uart_num);
-
-}
-
-void uart_printf(char *string, void *pvParamemeter){
-   sprintf(string,"%f\n\r",pvParamemeter);
-   uart_write_bytes(uart_num,string,strlen(string));
-   uart_flush(uart_num);
-   uart_flush_input(uart_num);
-
-}
-
-*/
