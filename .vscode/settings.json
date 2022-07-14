@@ -6,6 +6,8 @@
         "string.h": "c",
         "adc.h": "c",
         "uart.h": "c",
-        "ieeefp.h": "c"
+        "ieeefp.h": "c",
+        "task.h": "c",
+        "semphr.h": "c"
     }
 }
