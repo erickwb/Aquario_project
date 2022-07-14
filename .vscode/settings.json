@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "esp_adc_cal.h": "c",
+        "queue.h": "c",
+        "freertos.h": "c",
+        "string.h": "c",
+        "adc.h": "c",
+        "uart.h": "c",
+        "ieeefp.h": "c"
+    }
+}

@@ -1,48 +1,57 @@
 /*
+    Projeto Final - Aquário Automático
+
+    Disciplina de RTOS
 
 */
 
 #include <stdio.h>
+#include <math.h>
+#include "string.h"
+#include <machine/ieeefp.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+
+
 #include "esp_system.h"
 #include "esp_spi_flash.h"
+#include "esp_adc_cal.h"
+#include "driver/uart.h"
 #include "driver/gpio.h"
 #include "driver/adc.h"
-#include "esp_adc_cal.h"
-#include <math.h>
-#include <machine/ieeefp.h>
-#include "driver/uart.h"
-#include "string.h"
 
+
+// DEFINES Sensor Temperatura
 #define R0 10000 //thermistor valor maximo
 #define th_Coeff 3470 //thermistor coeficiente
 #define Rseries 10000 // 10K resisitoe serie
 #define BUF_SIZE (1024)
 #define OFF 0
 #define ON 1
-//define portas
+
+// PORTAS GPIO
 #define tempSensor 36
-#define releAquecedo 25
+#define releAquecedor 25
 #define releColler 15
 #define releBomba 16
 #define boiaSensor 17
 
 void vGpioConf();
-//handles
+/* HANDLES */ 
 xQueueHandle tempQueue;
 xQueueHandle printTempQueue;
 xTaskHandle TaskHandle = NULL;
 xTaskHandle TaskHandle2 = NULL;
-xTaskHandle TaskHandle3 = NULL; //taskA
-xTaskHandle TaskHandle4 = NULL; //taskB
+xTaskHandle TaskHandle3 = NULL; 
+
 
 xSemaphoreHandle semaphore;
 
 char flag_boia;
 
-
+/* Interruption */
 static void IRAM_ATTR InterruptFunction(void* args){
     if(flag_boia == 'f'){
         gpio_set_level(releBomba,1);
@@ -54,7 +63,7 @@ static void IRAM_ATTR InterruptFunction(void* args){
         
 }
 
-
+/* Task1 */
 void tempMeasurement(void *pvParameters){
     
     float measuere = 0;
@@ -89,7 +98,7 @@ void tempMeasurement(void *pvParameters){
     }
 }
 
-
+/* Task2 */
 void controlAtuadores (void *pvParameters){
     //aquecedor cooler 
     float measuere;
@@ -97,24 +106,24 @@ void controlAtuadores (void *pvParameters){
     while (1) {
         xQueueReceive(tempQueue, &measuere, portMAX_DELAY);
         if(measuere > 28.00){
-            //temp acima de 28 
-            gpio_set_level(releAquecedo,0); //aquecedor ON
-            gpio_set_level(releColler,1); // coller OFF
+            //temperatura acima de 28 
+            gpio_set_level(releColler, 0); // coller ON
+            gpio_set_level(releAquecedor, 1); //aquecedor OFF
         }else if (measuere < 23 ){
-            //temp abaixo de 23 
-            gpio_set_level(releAquecedo,1);//aquecedor OFF
-            gpio_set_level(releColler,0); // coller ON
+            //temperatura abaixo de 23 
+            gpio_set_level(releAquecedor, 0);//aquecedor ON
+            gpio_set_level(releColler, 1); // coller OF
         }
         else{
-            //temp ideal 
-            gpio_set_level(releAquecedo,1);//aquecedor OFF
-            gpio_set_level(releColler,1);// coller OFF
+            //temperatura ideal 
+            gpio_set_level(releAquecedor, 1);//aquecedor OFF
+            gpio_set_level(releColler, 1);// coller OFF
 
         }
         vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
-
+/* Task3 */
 void printTemp(void *pvParameters){
     float measuere; 
 
@@ -136,8 +145,7 @@ void printTemp(void *pvParameters){
     
  
 }
-
-
+/* Main */
 void app_main() {
     
     vGpioConf();
@@ -156,18 +164,18 @@ void app_main() {
 
 }
 
-
+/* Configurações de GPIO */
 void vGpioConf(){
-    //rele1 aquecedor
+    //RELE1 AQUECEDOR
     gpio_config_t GPIOconfig;
     GPIOconfig.mode = GPIO_MODE_OUTPUT;
     GPIOconfig.intr_type = 0;
     GPIOconfig.pull_down_en = 0;
     GPIOconfig.pull_up_en = 0;
-    GPIOconfig.pin_bit_mask = (1 << releAquecedo);
+    GPIOconfig.pin_bit_mask = (1 << releAquecedor);
     gpio_config(&GPIOconfig);
 
-    //rele2 coller 
+    //RELE2 COLLER 
     GPIOconfig.mode = GPIO_MODE_OUTPUT;
     GPIOconfig.intr_type = 0;
     GPIOconfig.pull_down_en = 0;
@@ -175,7 +183,7 @@ void vGpioConf(){
     GPIOconfig.pin_bit_mask = (1 << releColler);
     gpio_config(&GPIOconfig);
 
-    //rele3 LED
+    //RELE 3 BOMBA
     GPIOconfig.mode = GPIO_MODE_OUTPUT;
     GPIOconfig.intr_type = 0;
     GPIOconfig.pull_down_en = 0;
@@ -184,7 +192,7 @@ void vGpioConf(){
     gpio_set_level(releBomba,1);
     gpio_config(&GPIOconfig);
 
-    //sensor temp
+    //SENSOR TEMPERATURA
     GPIOconfig.mode = GPIO_MODE_INPUT;
     GPIOconfig.intr_type = 0;
     GPIOconfig.pull_down_en = 0;
@@ -192,7 +200,7 @@ void vGpioConf(){
     GPIOconfig.pin_bit_mask = (1 << tempSensor);
     gpio_config(&GPIOconfig);
 
-    //sensor boia
+    //SENSOR SENSOR DE NIVEL
     GPIOconfig.mode = GPIO_MODE_INPUT;
     GPIOconfig.intr_type = GPIO_INTR_ANYEDGE;
     GPIOconfig.pull_down_en = 0;
